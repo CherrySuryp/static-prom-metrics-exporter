@@ -9,12 +9,20 @@ import (
 
 type StaticMetric struct {
 	Name  string `yaml:"name"`
+	Help  string `yaml:"help" default:""`
 	Value uint64 `yaml:"value"`
 }
 
+type Server struct {
+	Port      string            `yaml:"port"`
+	TlsCrt    string            `yaml:"tls_crt"`
+	TlsKey    string            `yaml:"tls_key"`
+	BasicAuth map[string]string `yaml:"basic-auth"`
+}
+
 type Config struct {
-	BasicAuth     map[string]string `yaml:"basic-auth"`
-	StaticMetrics []StaticMetric    `yaml:"static-metrics"`
+	Server        Server         `yaml:"server"`
+	StaticMetrics []StaticMetric `yaml:"static_metrics"`
 }
 
 func MustLoad(configPath string) *Config {
@@ -30,6 +38,5 @@ func MustLoad(configPath string) *Config {
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
-	print()
 	return &cfg
 }

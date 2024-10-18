@@ -3,7 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 
 	"crypto/sha256"
 	"crypto/subtle"
@@ -17,13 +19,7 @@ import (
 var expectedUsername string
 var expectedPassword string
 
-var gaugeMetric prometheus.Gauge = prometheus.NewGauge(prometheus.GaugeOpts{
-	Name: "example_gauge",
-	Help: "This is example gauge metric",
-})
-
 func init() {
-	prometheus.MustRegister(gaugeMetric)
 	prometheus.Unregister(collectors.NewGoCollector())
 	prometheus.Unregister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 }
@@ -33,15 +29,43 @@ func main() {
 	flag.Parse()
 
 	cfg := config.MustLoad(*configPath)
-	for username, password := range cfg.BasicAuth {
+	for username, password := range cfg.Server.BasicAuth {
 		expectedUsername = username
 		expectedPassword = password
 	}
-	fmt.Println("Started http server...")
+
+	MustRegisterStaticMetrics(cfg.StaticMetrics)
+
 	http.Handle("/metrics", basicAuthMiddleware(promhttp.Handler()))
-	http.ListenAndServe(":2121", nil)
+
+	fmt.Printf("Starting http server on port: %s\n", cfg.Server.Port)
+
+	var httpAddress string = fmt.Sprintf(":%s", cfg.Server.Port)
+	if cfg.Server.TlsCrt != "" && cfg.Server.TlsKey != "" {
+		if _, err := os.Stat(cfg.Server.TlsCrt); os.IsNotExist(err) {
+			log.Fatal("Couldn't open TLS Certificate File")
+		}
+		if _, err := os.Stat(cfg.Server.TlsKey); os.IsNotExist(err) {
+			log.Fatal("Couldn't open TLS Certificate File")
+		}
+		fmt.Println("TLS enabled")
+		http.ListenAndServeTLS(httpAddress, cfg.Server.TlsCrt, cfg.Server.TlsKey, nil)
+	}
+	http.ListenAndServe(httpAddress, nil)
 }
 
+func MustRegisterStaticMetrics(metrics []config.StaticMetric) {
+	fmt.Println("Initializing metrics...")
+	for _, metric := range metrics {
+		gaugeMetric := prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: metric.Name,
+			Help: metric.Help,
+		})
+		prometheus.MustRegister(gaugeMetric)
+		gaugeMetric.Set(float64(metric.Value))
+		fmt.Printf("Registered metric \"%s\" with value: %d\n", metric.Name, metric.Value)
+	}
+}
 
 func basicAuthMiddleware(next http.Handler) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request){

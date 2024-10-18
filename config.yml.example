@@ -1,7 +1,0 @@
-basic-auth:
-  admin: password
-static-metrics:
-  - name: test_metric-1
-    value: 12345678
-  - name: test_metric-2
-    value: 89
