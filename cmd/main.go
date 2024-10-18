@@ -68,19 +68,19 @@ func MustRegisterStaticMetrics(metrics []config.StaticMetric) {
 }
 
 func basicAuthMiddleware(next http.Handler) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request){
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		username, password, ok := r.BasicAuth()
 		if ok {
 			presentUsernameHash := sha256.Sum256([]byte(username))
 			presentPasswordHash := sha256.Sum256([]byte(password))
-			
+
 			expectedUsernameHash := sha256.Sum256([]byte(expectedUsername))
 			expectedPasswordHash := sha256.Sum256([]byte(expectedPassword))
 
 			usernameMatch := subtle.ConstantTimeCompare(presentUsernameHash[:], expectedUsernameHash[:]) == 1
 			passwordMatch := subtle.ConstantTimeCompare(presentPasswordHash[:], expectedPasswordHash[:]) == 1
-			
-			if usernameMatch && passwordMatch{
+
+			if usernameMatch && passwordMatch {
 				next.ServeHTTP(w, r)
 				return
 			}
