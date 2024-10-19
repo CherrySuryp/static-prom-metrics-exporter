@@ -1,14 +1,14 @@
 package main
 
 import (
+	"crypto/sha256"
+	"crypto/subtle"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 
-	"crypto/sha256"
-	"crypto/subtle"
 	"static-metrics-exporter/internal/config"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -25,7 +25,8 @@ func init() {
 }
 
 func main() {
-	configPath := flag.String("config", "", "Path to YAML config file")
+	configPath := flag.String("config", "config.yml", "Path to YAML config file")
+	port := flag.Int("port", 9002, "Port to listen on")
 	flag.Parse()
 
 	cfg := config.MustLoad(*configPath)
@@ -36,26 +37,37 @@ func main() {
 
 	MustRegisterStaticMetrics(cfg.StaticMetrics)
 
-	http.Handle("/metrics", basicAuthMiddleware(promhttp.Handler()))
+	http.Handle("/metrics", BasicAuthMiddleware(promhttp.Handler()))
 
-	fmt.Printf("Starting http server on port: %s\n", cfg.Server.Port)
+	startServer(fmt.Sprintf(":%d", *port), cfg.Server.TlsCrt, cfg.Server.TlsKey)
+}
 
-	var httpAddress string = fmt.Sprintf(":%s", cfg.Server.Port)
-	if cfg.Server.TlsCrt != "" && cfg.Server.TlsKey != "" {
-		if _, err := os.Stat(cfg.Server.TlsCrt); os.IsNotExist(err) {
+func startServer(httpAddress string, tlsCrt string, tlsKey string) {
+	fmt.Printf("Starting listening on port: %s\n", httpAddress)
+
+	if tlsCrt != "" && tlsKey != "" {
+		if _, err := os.Stat(tlsCrt); os.IsNotExist(err) {
 			log.Fatal("Couldn't open TLS Certificate File")
 		}
-		if _, err := os.Stat(cfg.Server.TlsKey); os.IsNotExist(err) {
-			log.Fatal("Couldn't open TLS Certificate File")
+		if _, err := os.Stat(tlsKey); os.IsNotExist(err) {
+			log.Fatal("Couldn't open TLS Key File")
 		}
 		fmt.Println("TLS enabled")
-		http.ListenAndServeTLS(httpAddress, cfg.Server.TlsCrt, cfg.Server.TlsKey, nil)
+		err := http.ListenAndServeTLS(httpAddress, tlsCrt, tlsKey, nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return
 	}
-	http.ListenAndServe(httpAddress, nil)
+	fmt.Println("TLS disabled")
+	err := http.ListenAndServe(httpAddress, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return
 }
 
 func MustRegisterStaticMetrics(metrics []config.StaticMetric) {
-	fmt.Println("Initializing metrics...")
 	for _, metric := range metrics {
 		gaugeMetric := prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: metric.Name,
@@ -67,7 +79,7 @@ func MustRegisterStaticMetrics(metrics []config.StaticMetric) {
 	}
 }
 
-func basicAuthMiddleware(next http.Handler) http.HandlerFunc {
+func BasicAuthMiddleware(next http.Handler) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		username, password, ok := r.BasicAuth()
 		if ok {

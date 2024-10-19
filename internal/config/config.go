@@ -14,7 +14,6 @@ type StaticMetric struct {
 }
 
 type Server struct {
-	Port      string            `yaml:"port"`
 	TlsCrt    string            `yaml:"tls_crt" default:""`
 	TlsKey    string            `yaml:"tls_key" default:""`
 	BasicAuth map[string]string `yaml:"basic-auth"`
