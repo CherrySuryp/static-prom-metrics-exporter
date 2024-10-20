@@ -5,7 +5,7 @@ Define and export static prometheus metrics via simple YAML configuration
 ```yaml
 --help
 --config /path/to/config.yml # string default ./config.yml
---port 1234 # string default 9002
+--port 1234 # int default 9002
 --tls-crt /path/to/tls/crt # string optional
 --tls-key /path/to/tls/key # string optional
 ```
