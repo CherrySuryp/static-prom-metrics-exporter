@@ -1,5 +1,5 @@
 #!/bin/sh
-version=`git describe --tags HEAD`
+version=$1
 platforms=(
 "darwin/amd64"
 "darwin/arm64"
