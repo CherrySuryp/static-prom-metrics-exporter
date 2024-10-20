@@ -21,3 +21,17 @@ jobs:
 
       - name: "Display the release tag"
         run: echo ${{ github.event.release.tag_name }}
+
+      - name: "Compile binaries"
+        run: ./build.sh ${{ github.event.release.tag_name }}
+
+      - name: "List compile binaries"
+        run: ls ./release/ | grep "exporter"
+
+      - name: "Upload binaries"
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: '${{ github.token }}'
+          tag: '${{ github.ref }}'
+          file: ./release/static-exporter-*
+          file_glob: true
