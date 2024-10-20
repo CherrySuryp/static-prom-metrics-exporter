@@ -28,7 +28,7 @@ jobs:
         run: cat build.sh
 
       - name: "Compile binaries"
-        run: sh build.sh ${{ github.event.release.tag_name }}
+        run: ./build.sh ${{ github.event.release.tag_name }}
 
       - name: "List compile binaries"
         run: ls ./release/ | grep "exporter"
