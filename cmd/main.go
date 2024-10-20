@@ -1,13 +1,12 @@
 package main
 
 import (
-	"crypto/sha256"
-	"crypto/subtle"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"static-metrics-exporter/internal/middleware"
 
 	"static-metrics-exporter/internal/config"
 
@@ -16,30 +15,39 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-var expectedUsername string
-var expectedPassword string
+var flags Flags
 
-func init() {
-	prometheus.Unregister(collectors.NewGoCollector())
-	prometheus.Unregister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+var basicAuth middleware.BasicAuth
+
+type Flags struct {
+	ConfigPath string
+	Port       int
+	TlsCrt     string
+	TlsKey     string
 }
 
-func main() {
-	configPath := flag.String("config", "config.yml", "Path to YAML config file")
-	port := flag.Int("port", 9002, "Port to listen on")
+func (f *Flags) Init() {
+	flag.StringVar(&f.ConfigPath, "config", "config.yml", "Path to YAML config file")
+	flag.IntVar(&f.Port, "port", 9002, "Port to listen on")
+	flag.StringVar(&f.TlsCrt, "tls-crt", "", "Path to TLS Certificate File")
+	flag.StringVar(&f.TlsKey, "tls-key", "", "Path to TLS Key File")
 	flag.Parse()
+}
 
-	cfg := config.MustLoad(*configPath)
-	for username, password := range cfg.Server.BasicAuth {
-		expectedUsername = username
-		expectedPassword = password
+func mustRegisterStaticMetrics(metrics []config.StaticMetric) {
+	for _, metric := range metrics {
+		gaugeMetric := prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: metric.Name,
+			Help: metric.Help,
+		})
+		prometheus.MustRegister(gaugeMetric)
+		gaugeMetric.Set(float64(metric.Value))
+		fmt.Printf("Registered metric \"%s\" with value: %d\n", metric.Name, metric.Value)
 	}
+}
 
-	MustRegisterStaticMetrics(cfg.StaticMetrics)
-
-	http.Handle("/metrics", BasicAuthMiddleware(promhttp.Handler()))
-
-	startServer(fmt.Sprintf(":%d", *port), cfg.Server.TlsCrt, cfg.Server.TlsKey)
+func initHandlers() {
+	http.Handle("/metrics", basicAuth.Middleware(promhttp.Handler()))
 }
 
 func startServer(httpAddress string, tlsCrt string, tlsKey string) {
@@ -67,37 +75,25 @@ func startServer(httpAddress string, tlsCrt string, tlsKey string) {
 	return
 }
 
-func MustRegisterStaticMetrics(metrics []config.StaticMetric) {
-	for _, metric := range metrics {
-		gaugeMetric := prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: metric.Name,
-			Help: metric.Help,
-		})
-		prometheus.MustRegister(gaugeMetric)
-		gaugeMetric.Set(float64(metric.Value))
-		fmt.Printf("Registered metric \"%s\" with value: %d\n", metric.Name, metric.Value)
-	}
+func init() {
+	flags.Init()
+	prometheus.Unregister(collectors.NewGoCollector())
+	prometheus.Unregister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+	prometheus.Unregister(collectors.NewBuildInfoCollector())
+	initHandlers()
 }
 
-func BasicAuthMiddleware(next http.Handler) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		username, password, ok := r.BasicAuth()
-		if ok {
-			presentUsernameHash := sha256.Sum256([]byte(username))
-			presentPasswordHash := sha256.Sum256([]byte(password))
+func main() {
+	cfg := config.MustLoad(flags.ConfigPath)
+	mustRegisterStaticMetrics(cfg.StaticMetrics)
 
-			expectedUsernameHash := sha256.Sum256([]byte(expectedUsername))
-			expectedPasswordHash := sha256.Sum256([]byte(expectedPassword))
+	var username string
+	var password string
+	for user, pass := range cfg.Server.BasicAuth {
+		username = user
+		password = pass
+	}
+	basicAuth.SetCredentials(username, password)
 
-			usernameMatch := subtle.ConstantTimeCompare(presentUsernameHash[:], expectedUsernameHash[:]) == 1
-			passwordMatch := subtle.ConstantTimeCompare(presentPasswordHash[:], expectedPasswordHash[:]) == 1
-
-			if usernameMatch && passwordMatch {
-				next.ServeHTTP(w, r)
-				return
-			}
-		}
-		w.Header().Set("WWW-Authenticate", `Basic realm="restricted", charset="UTF-8"`)
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-	})
+	startServer(fmt.Sprintf(":%d", flags.Port), flags.TlsCrt, flags.TlsKey)
 }
