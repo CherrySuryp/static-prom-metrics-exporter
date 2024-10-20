@@ -1,4 +1,5 @@
 config.yml
 config.yaml
+bin/*
 ignore/*
 .idea

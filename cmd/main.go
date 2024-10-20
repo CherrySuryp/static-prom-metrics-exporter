@@ -6,9 +6,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"static-metrics-exporter/internal/middleware"
 
-	"crypto/sha256"
-	"crypto/subtle"
 	"static-metrics-exporter/internal/config"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -16,46 +15,26 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-var expectedUsername string
-var expectedPassword string
+var flags Flags
 
-func init() {
-	prometheus.Unregister(collectors.NewGoCollector())
-	prometheus.Unregister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+var basicAuth middleware.BasicAuth
+
+type Flags struct {
+	ConfigPath string
+	Port       int
+	TlsCrt     string
+	TlsKey     string
 }
 
-func main() {
-	configPath := flag.String("config", "", "Path to YAML config file")
+func (f *Flags) Init() {
+	flag.StringVar(&f.ConfigPath, "config", "config.yml", "Path to YAML config file")
+	flag.IntVar(&f.Port, "port", 9002, "Port to listen on")
+	flag.StringVar(&f.TlsCrt, "tls-crt", "", "Path to TLS Certificate File")
+	flag.StringVar(&f.TlsKey, "tls-key", "", "Path to TLS Key File")
 	flag.Parse()
-
-	cfg := config.MustLoad(*configPath)
-	for username, password := range cfg.Server.BasicAuth {
-		expectedUsername = username
-		expectedPassword = password
-	}
-
-	MustRegisterStaticMetrics(cfg.StaticMetrics)
-
-	http.Handle("/metrics", basicAuthMiddleware(promhttp.Handler()))
-
-	fmt.Printf("Starting http server on port: %s\n", cfg.Server.Port)
-
-	var httpAddress string = fmt.Sprintf(":%s", cfg.Server.Port)
-	if cfg.Server.TlsCrt != "" && cfg.Server.TlsKey != "" {
-		if _, err := os.Stat(cfg.Server.TlsCrt); os.IsNotExist(err) {
-			log.Fatal("Couldn't open TLS Certificate File")
-		}
-		if _, err := os.Stat(cfg.Server.TlsKey); os.IsNotExist(err) {
-			log.Fatal("Couldn't open TLS Certificate File")
-		}
-		fmt.Println("TLS enabled")
-		http.ListenAndServeTLS(httpAddress, cfg.Server.TlsCrt, cfg.Server.TlsKey, nil)
-	}
-	http.ListenAndServe(httpAddress, nil)
 }
 
-func MustRegisterStaticMetrics(metrics []config.StaticMetric) {
-	fmt.Println("Initializing metrics...")
+func mustRegisterStaticMetrics(metrics []config.StaticMetric) {
 	for _, metric := range metrics {
 		gaugeMetric := prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: metric.Name,
@@ -67,25 +46,54 @@ func MustRegisterStaticMetrics(metrics []config.StaticMetric) {
 	}
 }
 
-func basicAuthMiddleware(next http.Handler) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		username, password, ok := r.BasicAuth()
-		if ok {
-			presentUsernameHash := sha256.Sum256([]byte(username))
-			presentPasswordHash := sha256.Sum256([]byte(password))
+func initHandlers() {
+	http.Handle("/metrics", basicAuth.Middleware(promhttp.Handler()))
+}
 
-			expectedUsernameHash := sha256.Sum256([]byte(expectedUsername))
-			expectedPasswordHash := sha256.Sum256([]byte(expectedPassword))
+func startServer(httpAddress string, tlsCrt string, tlsKey string) {
+	fmt.Printf("Starting listening on port: %s\n", httpAddress)
 
-			usernameMatch := subtle.ConstantTimeCompare(presentUsernameHash[:], expectedUsernameHash[:]) == 1
-			passwordMatch := subtle.ConstantTimeCompare(presentPasswordHash[:], expectedPasswordHash[:]) == 1
-
-			if usernameMatch && passwordMatch {
-				next.ServeHTTP(w, r)
-				return
-			}
+	if tlsCrt != "" && tlsKey != "" {
+		if _, err := os.Stat(tlsCrt); os.IsNotExist(err) {
+			log.Fatal("Couldn't open TLS Certificate File")
 		}
-		w.Header().Set("WWW-Authenticate", `Basic realm="restricted", charset="UTF-8"`)
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-	})
+		if _, err := os.Stat(tlsKey); os.IsNotExist(err) {
+			log.Fatal("Couldn't open TLS Key File")
+		}
+		fmt.Println("TLS enabled")
+		err := http.ListenAndServeTLS(httpAddress, tlsCrt, tlsKey, nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+	fmt.Println("TLS disabled")
+	err := http.ListenAndServe(httpAddress, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return
+}
+
+func init() {
+	flags.Init()
+	prometheus.Unregister(collectors.NewGoCollector())
+	prometheus.Unregister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+	prometheus.Unregister(collectors.NewBuildInfoCollector())
+	initHandlers()
+}
+
+func main() {
+	cfg := config.MustLoad(flags.ConfigPath)
+	mustRegisterStaticMetrics(cfg.StaticMetrics)
+
+	var username string
+	var password string
+	for user, pass := range cfg.Server.BasicAuth {
+		username = user
+		password = pass
+	}
+	basicAuth.SetCredentials(username, password)
+
+	startServer(fmt.Sprintf(":%d", flags.Port), flags.TlsCrt, flags.TlsKey)
 }
