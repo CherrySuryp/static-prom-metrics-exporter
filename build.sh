@@ -7,7 +7,7 @@ for platform in "${platforms[@]}"; do
   GOOS=${parts[0]}
   GOARCH=${parts[1]}
 
-  output_name="static-exporter-${GOOS}-${GOARCH}"
+  output_name="static-exporter-${GOOS}-${GOARCH}-${version}"
   if [ $GOOS = "windows" ]; then
       output_name+='.exe'
   fi

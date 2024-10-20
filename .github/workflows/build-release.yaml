@@ -4,7 +4,6 @@ on:
     types:
       - created
 
-
 jobs:
   build:
     name: "Build Release Assets"
@@ -28,7 +27,7 @@ jobs:
         run: cat build.sh
 
       - name: "Compile binaries"
-        run: ./build.sh ${{ github.event.release.tag_name }}
+        run: bash build.sh ${{ github.event.release.tag_name }}
 
       - name: "List compile binaries"
         run: ls ./release/ | grep "exporter"
