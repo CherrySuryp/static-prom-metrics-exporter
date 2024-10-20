@@ -1,16 +1,16 @@
 ## Flags
 ```yaml
---config <Path To Config File>
 --help
+--config <Path To Config File> # default ./config.yml
+--port 1234 # default 9002
+--tls-crt /path/to/tls/crt
+--tls-key /path/to/tls/key
 ```
 ## Configuration file
 ```yaml
 server:
-  port: 9090
-  tls_crt: "path/to/tls/crt" # optional
-  tls_key: "path/to/tls/key" # optional
   basic-auth:
-    user: password
+    user: "bcrypt-hashed-password" # example: $2a$10$fRXmD.HuavUaUCq4Lp8UK.YmcgzfIxrfH1uZ2l3whKMcy7uthThli
 static_metrics:
   - name: bandwidth_limit_bytes
     help: "Network bandwidth limit in bytes" # optional
