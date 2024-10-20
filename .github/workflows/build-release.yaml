@@ -4,6 +4,7 @@ on:
     types:
       - created
 
+
 jobs:
   build:
     name: "Build Release Assets"

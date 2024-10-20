@@ -1,13 +1,6 @@
 #!/bin/bash
 version=$1
-platforms=(
-"darwin/amd64"
-"darwin/arm64"
-"linux/amd64"
-"linux/arm"
-"linux/arm64"
-"windows/amd64"
-)
+platforms=("darwin/amd64" "darwin/arm64" "linux/amd64" "linux/arm" "linux/arm64" "windows/amd64")
 
 for platform in "${platforms[@]}"; do
   IFS='/' read -ra parts <<< "$platform"
