@@ -1,10 +1,13 @@
+# Static Prometheus Metrics Exporter
+Define and export static prometheus metrics via simple YAML configuration
+
 ## Flags
 ```yaml
 --help
 --config <Path To Config File> # default ./config.yml
 --port 1234 # default 9002
---tls-crt /path/to/tls/crt
---tls-key /path/to/tls/key
+--tls-crt /path/to/tls/crt # optional
+--tls-key /path/to/tls/key # optional
 ```
 ## Configuration file
 ```yaml
