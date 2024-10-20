@@ -4,10 +4,10 @@ Define and export static prometheus metrics via simple YAML configuration
 ## Flags
 ```yaml
 --help
---config <Path To Config File> # default ./config.yml
---port 1234 # default 9002
---tls-crt /path/to/tls/crt # optional
---tls-key /path/to/tls/key # optional
+--config /path/to/config.yml/ # string default ./config.yml
+--port 1234 # string default 9002
+--tls-crt /path/to/tls/crt # string optional
+--tls-key /path/to/tls/key # string optional
 ```
 ## Configuration file
 ```yaml
@@ -17,7 +17,7 @@ server:
 static_metrics:
   - name: bandwidth_limit_bytes
     help: "Network bandwidth limit in bytes" # optional
-    value: 123123123123123
+    value: 123123123123123 # integer or float
   - name: custom_metric
     value: 89
   - name: useless_metric
