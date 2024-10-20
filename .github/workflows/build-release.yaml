@@ -5,33 +5,18 @@ on:
       - created
 
 jobs:
-  build:
-    name: "Build Release Assets"
+  compile-binaries:
+    name: "Compile release binaries"
     runs-on: ubuntu-22.04
     steps:
       - name: "Checkout Code"
         uses: actions/checkout@v4
-
       - name: "Setup Go"
         uses: actions/setup-go@v5.0.2
         with:
           go-version: 1.23.2
-
-      - name: "Display Go version"
-        run: go version
-
-      - name: "Display the release tag"
-        run: echo ${{ github.event.release.tag_name }}
-
-      - name: "Cat bash script"
-        run: cat build.sh
-
       - name: "Compile binaries"
         run: bash build.sh ${{ github.event.release.tag_name }}
-
-      - name: "List compile binaries"
-        run: ls ./release/ | grep "exporter"
-
       - name: "Upload binaries"
         uses: svenstaro/upload-release-action@v2
         with:
