@@ -23,6 +23,9 @@ jobs:
       - name: "Display the release tag"
         run: echo ${{ github.event.release.tag_name }}
 
+      - name: "Cat bash script"
+        run: cat build.sh
+
       - name: "Compile binaries"
         run: sh build.sh ${{ github.event.release.tag_name }}
 
