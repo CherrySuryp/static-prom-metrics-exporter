@@ -3,3 +3,4 @@ config.yaml
 bin/*
 ignore/*
 .idea
+release/*
