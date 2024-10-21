@@ -20,10 +20,8 @@ func (b *BasicAuth) Middleware(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		presentedUsername, presentedPassword, ok := r.BasicAuth()
 		if ok {
-
 			usernameMatch := subtle.ConstantTimeCompare([]byte(presentedUsername)[:], b.Username[:]) == 1
 			passwordMatch := bcrypt.CompareHashAndPassword(b.Password, []byte(presentedPassword)[:])
-
 			if usernameMatch == true && passwordMatch == nil {
 				next.ServeHTTP(w, r)
 				return
