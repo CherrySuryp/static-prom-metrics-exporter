@@ -23,11 +23,8 @@ jobs:
       - name: "Build and push"
         uses: docker/build-push-action@v6
         with:
-          context: Dockerfile
+          context: .
           push: true
           tags: |
             abelodev/static-exporter:${{ github.event.release.tag_name }}
-          platforms: "darwin/amd64", "darwin/arm64", "linux/amd64", "linux/arm", "linux/arm64", "windows/amd64"
-
-
-
+          platforms: darwin/amd64, darwin/arm64, linux/amd64, linux/arm, linux/arm64, windows/amd64
