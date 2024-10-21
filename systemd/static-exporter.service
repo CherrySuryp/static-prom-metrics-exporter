@@ -1,0 +1,8 @@
+[Unit]
+Description="Static Exporter"
+
+[Service]
+ExecStart=/usr/local/bin/static-exporter \
+          --config=/etc/static-exporter/config.yml \
+          --tls-crt=/etc/static-exporter/certs/tls.crt \
+          --tls-key=/etc/static-exporter/certs/tls.key
